@@ -1,0 +1,90 @@
+.login-layout {
+  min-height: 100vh;
+  background-color: #0a0a23;
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  overflow: hidden;
+}
+
+.background-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.15);
+  z-index: 1;
+}
+
+.login-content {
+  z-index: 2;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: 10%;
+}
+
+.login-panel {
+  max-width: 420px;
+  width: 100%;
+}
+
+.dark-glass-card,
+.light-glass-card {
+  width: 100%;
+  border-radius: 16px !important;
+  backdrop-filter: blur(30px);
+  padding: 8px;
+}
+
+.dark-glass-card {
+  background: rgba(18, 18, 18, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+
+.light-glass-card {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+.logo {
+  display: block;
+  margin: 0 auto 16px;
+  width: 120px;
+}
+
+.background-image-dark,
+.background-image-light {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: auto 100%;
+  opacity: 0;
+  transition: opacity 0.8s ease-in-out;
+  z-index: 0;
+}
+
+.background-image-dark {
+  background-image: url("/images/BackFocoArquivaE.png");
+}
+
+.background-image-light {
+  background-image: url("/images/BackFocoArquivaEWhite.png");
+}
+
+.login-layout.dark-theme .background-image-dark,
+.login-layout.light-theme .background-image-light {
+  opacity: 1;
+}
+
+@media (max-width: 800px) {
+  .login-content {
+    justify-content: center;
+    padding: 24px;
+  }
+}
