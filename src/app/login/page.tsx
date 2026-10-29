@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Checkbox, Form, Input, Switch, Typography } from "antd";
 import { EyeInvisibleOutlined, EyeOutlined, MoonOutlined, SunOutlined } from "@ant-design/icons";
+import NaoSouRobo, { noComputadorLocal } from "@/components/login/NaoSouRobo";
 import "./login.css";
 
 const { Title, Text, Link } = Typography;
@@ -19,17 +20,32 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [noComputador, setNoComputador] = useState(true);
+  const [captcha, setCaptcha] = useState("");
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? "";
+
+  useEffect(() => {
+    setNoComputador(noComputadorLocal());
+  }, []);
   const logo = theme === "dark" ? "/images/FocoLogoWhite.png" : "/images/FocoLogo.png";
 
   async function onFinish(values: { email: string; password: string }) {
-    setError("");
-    setLoading(true);
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: values.email, password: values.password }),
-      });
+      setError("");
+      if (!noComputador && !captcha) {
+        setError(siteKey ? "Confirme que você não é um robô." : "Confirmação ainda sem a chave do site.");
+        return;
+      }
+      setLoading(true);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/sessions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: values.email,
+            password: values.password,
+            ...(captcha ? { captcha } : {}),
+          }),
+        });
       if (!response.ok) {
         setError("Credenciais inválidas.");
         return;
@@ -85,6 +101,7 @@ export default function LoginPage() {
                   }
                 />
               </Form.Item>
+              {!noComputador ? <NaoSouRobo siteKey={siteKey} onToken={setCaptcha} /> : null}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
                 <Checkbox>Lembrar-me</Checkbox>
                 <Link href="#esqueceu-senha">Esqueceu a senha?</Link>

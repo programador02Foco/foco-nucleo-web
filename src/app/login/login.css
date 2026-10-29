@@ -57,6 +57,22 @@
   width: 120px;
 }
 
+.login-layout.dark-theme .dark-glass-card .ant-form-item-label > label,
+.login-layout.dark-theme .dark-glass-card .ant-checkbox-wrapper,
+.login-layout.dark-theme .dark-glass-card .ant-checkbox-wrapper span,
+.login-layout.dark-theme .dark-glass-card .ant-typography {
+  color: #fff !important;
+}
+
+.login-layout.dark-theme .dark-glass-card .ant-input::placeholder {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.login-layout.dark-theme .dark-glass-card a,
+.login-layout.dark-theme .dark-glass-card .ant-typography a {
+  color: #69b1ff !important;
+}
+
 .background-image-dark,
 .background-image-light {
   position: absolute;
