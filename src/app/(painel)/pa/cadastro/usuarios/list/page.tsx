@@ -47,23 +47,42 @@ export default function UsersPage() {
   const [senha, setSenha] = useState("");
   const [confirma, setConfirma] = useState("");
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [applied, setApplied] = useState("");
+  const [accessType, setAccessType] = useState<string | undefined>();
+  const [page, setPage] = useState(1);
 
-  async function load() {
-    const data = await api<UserRow[]>("/users");
+  function usersPath(term: string, role?: string) {
+    const params = new URLSearchParams();
+    if (term) params.set("search", term);
+    if (role) params.set("access_type", role);
+    const query = params.toString();
+    return query ? `/users?${query}` : "/users";
+  }
+
+  async function load(term = applied, role = accessType) {
+    const data = await api<UserRow[]>(usersPath(term, role));
     setRows(data);
   }
 
   useEffect(() => {
-    Promise.all([
-      api<{ userRoles?: RoleRow[] }>("/usersAutentication"),
-      api<UserRow[]>("/users"),
-    ])
-      .then(([me, data]) => {
+    api<{ userRoles?: RoleRow[] }>("/usersAutentication")
+      .then((me) => {
         setAdmin(Boolean(me.userRoles?.some((role) => papelCanonico(role.description) === "Administrator")));
-        setRows(data);
       })
-      .finally(() => setLoading(false));
+      .catch(() => setAdmin(false));
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setApplied(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+    setLoading(true);
+    load(applied, accessType).finally(() => setLoading(false));
+  }, [applied, accessType]);
 
   function openEdit(row: UserRow) {
     setPapel(papelDaPessoa(row));
@@ -113,11 +132,34 @@ export default function UsersPage() {
       {admin ? null : (
         <p style={{ color: "#666" }}>Somente o administrador altera senha e papel.</p>
       )}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+        <Input.Search
+          allowClear
+          placeholder="Pesquisar por nome, e-mail ou usuário"
+          style={{ maxWidth: 420 }}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          onSearch={(value) => setApplied(value.trim())}
+        />
+        <Select
+          allowClear
+          placeholder="Filtrar por tipo de acesso"
+          style={{ width: 220 }}
+          value={accessType}
+          options={papeis}
+          onChange={(value) => setAccessType(value)}
+        />
+      </div>
       <Table
         rowKey="id"
         loading={loading}
         dataSource={rows}
-        pagination={{ pageSize: 10, showSizeChanger: true }}
+        pagination={{
+          current: page,
+          pageSize: 10,
+          showSizeChanger: true,
+          onChange: (next) => setPage(next),
+        }}
         columns={[
           { title: "Id", dataIndex: "id", width: 80 },
           { title: "Nome", dataIndex: "name" },
