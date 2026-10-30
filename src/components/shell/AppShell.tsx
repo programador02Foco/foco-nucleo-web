@@ -28,7 +28,7 @@ import {
   SunOutlined,
   TagOutlined,
 } from "@ant-design/icons";
-import { api, clearSession } from "@/lib/api";
+import { api, clearSession, readSession } from "@/lib/api";
 
 const { Header, Content, Sider } = Layout;
 
@@ -120,14 +120,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const stored = localStorage.getItem("darkMode");
     const dark = stored === null ? true : stored === "true";
     setDarkMode(dark);
-    const raw = localStorage.getItem("userProfile");
-    if (raw) {
-      try {
-        setProfile(JSON.parse(raw) as { name: string; email: string });
-      } catch {
-        setProfile({ name: "", email: "" });
-      }
+    const session = readSession();
+    if (!session) {
+      router.replace("/login");
+      return;
     }
+    setProfile({ name: session.name, email: session.email });
     api<{ userRoles?: { description: string }[] }>("/usersAutentication")
       .then((me) => {
         setAdmin(
@@ -136,7 +134,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       })
       .catch(() => setAdmin(false));
     setReady(true);
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (!ready) return;
@@ -164,6 +162,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     clearSession();
     router.push("/login");
   }
+
+  if (!ready) return null;
 
   return (
     <ConfigProvider theme={{ algorithm: darkMode ? theme.darkAlgorithm : theme.defaultAlgorithm }}>

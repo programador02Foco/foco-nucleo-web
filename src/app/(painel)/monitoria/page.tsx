@@ -12,7 +12,7 @@ import {
   UserAddOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import { api } from "@/lib/api";
+import { api, readSession } from "@/lib/api";
 
 type Collector = {
   id: number;
@@ -46,14 +46,14 @@ export default function MonitoriaPage() {
   const [picked, setPicked] = useState<FoundUser | null>(null);
 
   async function load(term = search) {
-    const userId = localStorage.getItem("userId");
+    const userId = readSession()?.userId;
     if (!userId) {
       window.location.assign("/login");
       return;
     }
     setLoading(true);
     try {
-      const query = new URLSearchParams({ managerId: userId, status: "A", search: term });
+      const query = new URLSearchParams({ managerId: String(userId), status: "A", search: term });
       const data = await api<Collector[]>(`/user-collectors?${query.toString()}`);
       setRows(data);
     } catch (error) {
@@ -250,7 +250,7 @@ export default function MonitoriaPage() {
               size="large"
               onClick={async () => {
                 if (!picked) return;
-                const managerId = Number(localStorage.getItem("userId"));
+                const managerId = readSession()?.userId;
                 await api("/user-collectors", {
                   method: "POST",
                   body: JSON.stringify({ userId: picked.id, managerId, status: "A" }),

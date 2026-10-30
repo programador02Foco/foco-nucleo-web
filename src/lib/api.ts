@@ -1,17 +1,43 @@
-export function getToken() {
-  const raw = localStorage.getItem("authToken");
+const SESSION_KEY = "foco-nucleo.session";
+
+export type NucleoSession = {
+  app: "foco-nucleo";
+  token: string;
+  userId: number;
+  name: string;
+  email: string;
+};
+
+export function readSession(): NucleoSession | null {
+  const raw = localStorage.getItem(SESSION_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw).token as string;
+    const data = JSON.parse(raw) as Partial<NucleoSession>;
+    if (data.app !== "foco-nucleo" || typeof data.token !== "string" || !data.token) return null;
+    if (typeof data.userId !== "number") return null;
+    return {
+      app: "foco-nucleo",
+      token: data.token,
+      userId: data.userId,
+      name: data.name ?? "",
+      email: data.email ?? "",
+    };
   } catch {
     return null;
   }
 }
 
+export function saveSession(session: Omit<NucleoSession, "app">) {
+  const data: NucleoSession = { app: "foco-nucleo", ...session };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+}
+
+export function getToken() {
+  return readSession()?.token ?? null;
+}
+
 export function clearSession() {
-  localStorage.removeItem("authToken");
-  localStorage.removeItem("userId");
-  localStorage.removeItem("userProfile");
+  localStorage.removeItem(SESSION_KEY);
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {

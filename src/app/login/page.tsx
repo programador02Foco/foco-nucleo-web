@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button, Card, Checkbox, Form, Input, Switch, Typography } from "antd";
 import { EyeInvisibleOutlined, EyeOutlined, MoonOutlined, SunOutlined } from "@ant-design/icons";
 import NaoSouRobo, { noComputadorLocal } from "@/components/login/NaoSouRobo";
+import { saveSession } from "@/lib/api";
 import "./login.css";
 
 const { Title, Text, Link } = Typography;
@@ -60,12 +61,12 @@ export default function LoginPage() {
         return;
       }
       const data = (await response.json()) as Session;
-      localStorage.setItem("authToken", JSON.stringify({ token: data.token.token }));
-      localStorage.setItem("userId", String(data.user.id));
-      localStorage.setItem(
-        "userProfile",
-        JSON.stringify({ name: data.user.name, email: data.user.email }),
-      );
+      saveSession({
+        token: data.token.token,
+        userId: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+      });
       router.push("/");
     } finally {
       setLoading(false);
