@@ -10,6 +10,7 @@ type UserRow = {
   id: number;
   name: string;
   email: string;
+  cpf?: string;
   user_name: string;
   type: string;
   status: string;
@@ -22,6 +23,31 @@ const papeis = [
   { value: "Basic", label: "Básico" },
   { value: "Contador", label: "Contador" },
 ];
+
+function mascaraCpf(valor: string) {
+  const digitos = valor.replace(/\D/g, "").slice(0, 11);
+  if (digitos.length <= 3) return digitos;
+  if (digitos.length <= 6) return `${digitos.slice(0, 3)}.${digitos.slice(3)}`;
+  if (digitos.length <= 9) return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6)}`;
+  return `${digitos.slice(0, 3)}.${digitos.slice(3, 6)}.${digitos.slice(6, 9)}-${digitos.slice(9)}`;
+}
+
+function cpfValido(valor: string) {
+  const cpf = valor.replace(/\D/g, "");
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  const digito = (tamanho: number) => {
+    let soma = 0;
+    for (let i = 0; i < tamanho; i += 1) soma += Number(cpf[i]) * (tamanho + 1 - i);
+    const resto = (soma * 10) % 11;
+    return resto === 10 ? 0 : resto;
+  };
+  return digito(9) === Number(cpf[9]) && digito(10) === Number(cpf[10]);
+}
+
+function emailValido(valor: string) {
+  const email = valor.trim().toLowerCase();
+  return email.length > 0 && !/\s/.test(email) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 function papelCanonico(role: string) {
   const texto = role.trim().toLowerCase();
@@ -43,6 +69,9 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [admin, setAdmin] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [papel, setPapel] = useState("");
   const [senha, setSenha] = useState("");
   const [confirma, setConfirma] = useState("");
@@ -129,6 +158,9 @@ export default function UsersPage() {
   }
 
   function openEdit(row: UserRow) {
+    setNome(row.name || "");
+    setEmail(row.email || "");
+    setCpf((row.cpf || "").replace(/\D/g, ""));
     setPapel(papelDaPessoa(row));
     setSenha("");
     setConfirma("");
@@ -137,6 +169,21 @@ export default function UsersPage() {
 
   async function save() {
     if (!editing) return;
+    const nomeLimpo = nome.trim();
+    const emailLimpo = email.trim().toLowerCase();
+    const cpfLimpo = cpf.replace(/\D/g, "");
+    if (!nomeLimpo) {
+      message.error("Informe o nome.");
+      return;
+    }
+    if (!emailValido(emailLimpo)) {
+      message.error("Informe um e-mail válido.");
+      return;
+    }
+    if (!cpfValido(cpfLimpo)) {
+      message.error("Informe um CPF válido.");
+      return;
+    }
     if (!papel) {
       message.error("Escolha o papel.");
       return;
@@ -156,11 +203,14 @@ export default function UsersPage() {
       await api(`/users/${editing.id}/acesso`, {
         method: "PUT",
         body: JSON.stringify({
+          name: nomeLimpo,
+          email: emailLimpo,
+          cpf: cpfLimpo,
           role: papel,
           ...(nova ? { password: nova } : {}),
         }),
       });
-      message.success(nova ? "Senha e papel atualizados." : "Papel atualizado.");
+      message.success("Usuário atualizado.");
       setEditing(null);
       await load();
     } catch (error) {
@@ -174,7 +224,7 @@ export default function UsersPage() {
     <div style={{ background: "#fff", borderRadius: 8, padding: 24 }}>
       <h2 style={{ marginTop: 0 }}>Usuários</h2>
       {admin ? null : (
-        <p style={{ color: "#666" }}>Somente o administrador altera senha e papel.</p>
+        <p style={{ color: "#666" }}>Somente o administrador edita o usuário.</p>
       )}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <Input.Search
@@ -208,6 +258,12 @@ export default function UsersPage() {
           { title: "Id", dataIndex: "id", width: 80 },
           { title: "Nome", dataIndex: "name" },
           { title: "E-mail", dataIndex: "email" },
+          {
+            title: "CPF",
+            dataIndex: "cpf",
+            width: 150,
+            render: (valor: string) => mascaraCpf(valor || ""),
+          },
           { title: "Nome de Usuário", dataIndex: "user_name" },
           {
             title: "Papel",
@@ -233,7 +289,7 @@ export default function UsersPage() {
                       trigger={["click"]}
                       menu={{
                         items: [
-                          { key: "alterar", label: "Alterar senha e acesso" },
+                          { key: "alterar", label: "Editar" },
                           { key: "status", label: row.status === "A" ? "Inativar usuário" : "Ativar usuário" },
                           { key: "excluir", label: "Excluir usuário", danger: true },
                         ],
@@ -253,7 +309,7 @@ export default function UsersPage() {
         ]}
       />
       <Modal
-        title="Alterar senha e acesso"
+        title="Editar usuário"
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={save}
@@ -261,10 +317,27 @@ export default function UsersPage() {
         okText="Salvar"
         destroyOnHidden
       >
-        <p style={{ marginBottom: 16 }}>
-          {editing ? editing.name : ""}
-          {editing?.email ? ` — ${editing.email}` : ""}
-        </p>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 6 }}>Nome</div>
+          <Input value={nome} onChange={(event) => setNome(event.target.value)} />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 6 }}>E-mail</div>
+          <Input value={email} onChange={(event) => setEmail(event.target.value)} />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 6 }}>CPF</div>
+          <Input
+            value={mascaraCpf(cpf)}
+            inputMode="numeric"
+            placeholder="000.000.000-00"
+            onChange={(event) => setCpf(event.target.value.replace(/\D/g, "").slice(0, 11))}
+          />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 6 }}>Nome de usuário</div>
+          <Input value={editing?.user_name || ""} disabled />
+        </div>
         <div style={{ marginBottom: 16 }}>
           <div style={{ marginBottom: 6 }}>Papel</div>
           <Select
