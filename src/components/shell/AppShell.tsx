@@ -28,7 +28,7 @@ import {
   SunOutlined,
   TagOutlined,
 } from "@ant-design/icons";
-import { clearSession } from "@/lib/api";
+import { api, clearSession } from "@/lib/api";
 
 const { Header, Content, Sider } = Layout;
 
@@ -69,7 +69,10 @@ const menus: Record<ModuleKey, { label: string; items: { label: string; href: st
   pa: [
     {
       label: "",
-      items: [{ label: "Acessos por Usuário", href: "/pa/acoes/paacesso" }],
+      items: [
+        { label: "Acessos por Usuário", href: "/pa/acoes/paacesso" },
+        { label: "Empresas do usuário", href: "/pa/acoes/empresas-usuario" },
+      ],
     },
     {
       label: "Cadastros",
@@ -89,6 +92,7 @@ const crumbs: Record<string, string> = {
   monitoria: "Monitoria",
   pa: "Parâmetro",
   paacesso: "Acessos por Usuário",
+  "empresas-usuario": "Empresas do usuário",
   usuarios: "Usuários",
 };
 
@@ -110,6 +114,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [showMenu, setShowMenu] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profile, setProfile] = useState({ name: "", email: "" });
+  const [admin, setAdmin] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("darkMode");
@@ -123,6 +128,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setProfile({ name: "", email: "" });
       }
     }
+    api<{ userRoles?: { description: string }[] }>("/usersAutentication")
+      .then((me) => {
+        setAdmin(
+          Boolean(me.userRoles?.some((role) => role.description.toLowerCase() === "administrator")),
+        );
+      })
+      .catch(() => setAdmin(false));
     setReady(true);
   }, []);
 
@@ -304,7 +316,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       {group.label}
                     </div>
                   ) : null}
-                  {group.items.map((item) => {
+                  {group.items
+                    .filter((item) => admin || item.href !== "/pa/acoes/empresas-usuario")
+                    .map((item) => {
                     const active = pathname === item.href;
                     return (
                       <div

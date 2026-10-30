@@ -31,7 +31,15 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new Error("Sessão encerrada");
   }
   if (!response.ok) {
-    throw new Error(`Erro ${response.status}`);
+    let detail = `Erro ${response.status}`;
+    try {
+      const body = (await response.json()) as { message?: string | string[] };
+      if (typeof body.message === "string") detail = body.message;
+      else if (Array.isArray(body.message)) detail = body.message.join(" ");
+    } catch {
+      detail = `Erro ${response.status}`;
+    }
+    throw new Error(detail);
   }
   return response.json() as Promise<T>;
 }
