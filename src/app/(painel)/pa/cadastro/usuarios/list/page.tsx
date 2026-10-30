@@ -84,6 +84,50 @@ export default function UsersPage() {
     load(applied, accessType).finally(() => setLoading(false));
   }, [applied, accessType]);
 
+  async function changeStatus(row: UserRow) {
+    const next = row.status === "A" ? "I" : "A";
+    const action = next === "I" ? "inativar" : "ativar";
+    Modal.confirm({
+      title: next === "I" ? "Inativar usuário" : "Ativar usuário",
+      content: `Deseja ${action} ${row.name}?`,
+      okText: next === "I" ? "Inativar" : "Ativar",
+      cancelText: "Cancelar",
+      onOk: async () => {
+        try {
+          await api(`/users/${row.id}/status`, {
+            method: "PUT",
+            body: JSON.stringify({ status: next }),
+          });
+          message.success(next === "I" ? "Usuário inativado." : "Usuário ativado.");
+          await load();
+        } catch (error) {
+          message.error(error instanceof Error ? error.message : "Não foi possível alterar o status.");
+          throw error;
+        }
+      },
+    });
+  }
+
+  function removeUser(row: UserRow) {
+    Modal.confirm({
+      title: "Excluir usuário",
+      content: `Excluir ${row.name}? Essa pessoa deixa de entrar no sistema.`,
+      okText: "Excluir",
+      okButtonProps: { danger: true },
+      cancelText: "Cancelar",
+      onOk: async () => {
+        try {
+          await api(`/users/${row.id}`, { method: "DELETE" });
+          message.success("Usuário excluído.");
+          await load();
+        } catch (error) {
+          message.error(error instanceof Error ? error.message : "Não foi possível excluir.");
+          throw error;
+        }
+      },
+    });
+  }
+
   function openEdit(row: UserRow) {
     setPapel(papelDaPessoa(row));
     setSenha("");
@@ -188,8 +232,16 @@ export default function UsersPage() {
                     <Dropdown
                       trigger={["click"]}
                       menu={{
-                        items: [{ key: "alterar", label: "Alterar senha e acesso" }],
-                        onClick: () => openEdit(row),
+                        items: [
+                          { key: "alterar", label: "Alterar senha e acesso" },
+                          { key: "status", label: row.status === "A" ? "Inativar usuário" : "Ativar usuário" },
+                          { key: "excluir", label: "Excluir usuário", danger: true },
+                        ],
+                        onClick: ({ key }) => {
+                          if (key === "alterar") openEdit(row);
+                          if (key === "status") void changeStatus(row);
+                          if (key === "excluir") removeUser(row);
+                        },
                       }}
                     >
                       <Button>Ações</Button>
