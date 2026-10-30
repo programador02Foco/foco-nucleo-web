@@ -26,7 +26,7 @@ function papelCanonico(role: string) {
 
 function nomePapel(role: string) {
   const canonico = papelCanonico(role);
-  return papeis.find((item) => item.value === canonico)?.label ?? role || "Sem papel";
+  return papeis.find((item) => item.value === canonico)?.label ?? (role || "Sem papel");
 }
 
 export default function UsersPage() {
