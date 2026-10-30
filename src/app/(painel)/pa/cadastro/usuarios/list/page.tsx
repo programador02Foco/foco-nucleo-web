@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Form, Input, Modal, Select, Table, Tag, message } from "antd";
+import { Button, Dropdown, Input, Modal, Select, Table, Tag, message } from "antd";
 import { api } from "@/lib/api";
+
+type RoleRow = { description: string };
 
 type UserRow = {
   id: number;
@@ -11,7 +13,8 @@ type UserRow = {
   user_name: string;
   type: string;
   status: string;
-  role: string;
+  role?: string;
+  userRoles?: RoleRow[];
 };
 
 const papeis = [
@@ -21,12 +24,18 @@ const papeis = [
 ];
 
 function papelCanonico(role: string) {
-  return papeis.find((item) => item.value.toLowerCase() === role.trim().toLowerCase())?.value ?? "";
+  const texto = role.trim().toLowerCase();
+  return papeis.find((item) => item.value.toLowerCase() === texto)?.value ?? "";
 }
 
-function nomePapel(role: string) {
-  const canonico = papelCanonico(role);
-  return papeis.find((item) => item.value === canonico)?.label ?? (role || "Sem papel");
+function papelDaPessoa(row: UserRow) {
+  const bruto = row.role || row.userRoles?.[0]?.description || "";
+  return papelCanonico(bruto);
+}
+
+function nomePapel(row: UserRow) {
+  const canonico = papelDaPessoa(row);
+  return papeis.find((item) => item.value === canonico)?.label ?? "Sem papel";
 }
 
 export default function UsersPage() {
@@ -34,8 +43,10 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [admin, setAdmin] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
+  const [papel, setPapel] = useState("");
+  const [senha, setSenha] = useState("");
+  const [confirma, setConfirma] = useState("");
   const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm<{ role: string; password?: string; confirm?: string }>();
 
   async function load() {
     const data = await api<UserRow[]>("/users");
@@ -44,43 +55,49 @@ export default function UsersPage() {
 
   useEffect(() => {
     Promise.all([
-      api<{ userRoles?: { description: string }[] }>("/usersAutentication"),
+      api<{ userRoles?: RoleRow[] }>("/usersAutentication"),
       api<UserRow[]>("/users"),
     ])
       .then(([me, data]) => {
-        setAdmin(
-          Boolean(me.userRoles?.some((role) => role.description.toLowerCase() === "administrator")),
-        );
+        setAdmin(Boolean(me.userRoles?.some((role) => papelCanonico(role.description) === "Administrator")));
         setRows(data);
       })
       .finally(() => setLoading(false));
   }, []);
 
   function openEdit(row: UserRow) {
-    form.resetFields();
+    setPapel(papelDaPessoa(row));
+    setSenha("");
+    setConfirma("");
     setEditing(row);
   }
 
   async function save() {
     if (!editing) return;
-    const role = (form.getFieldValue("role") as string | undefined) || papelCanonico(editing.role);
-    if (!role) {
+    if (!papel) {
       message.error("Escolha o papel.");
       return;
     }
-    form.setFieldsValue({ role });
-    const values = await form.validateFields();
-    const password = values.password?.trim() ?? "";
+    const nova = senha.trim();
+    const repetida = confirma.trim();
+    if ((nova || repetida) && nova !== repetida) {
+      message.error("As senhas não coincidem.");
+      return;
+    }
+    if (nova && nova.length < 4) {
+      message.error("A senha deve ter pelo menos 4 caracteres.");
+      return;
+    }
     setSaving(true);
     try {
       await api(`/users/${editing.id}/acesso`, {
         method: "PUT",
         body: JSON.stringify({
-          role,
-          ...(password ? { password } : {}),
+          role: papel,
+          ...(nova ? { password: nova } : {}),
         }),
       });
-      message.success("Senha e papel atualizados.");
+      message.success(nova ? "Senha e papel atualizados." : "Papel atualizado.");
       setEditing(null);
       await load();
     } catch (error) {
@@ -108,9 +125,8 @@ export default function UsersPage() {
           { title: "Nome de Usuário", dataIndex: "user_name" },
           {
             title: "Papel",
-            dataIndex: "role",
             width: 160,
-            render: (role: string) => nomePapel(role),
+            render: (_: unknown, row: UserRow) => nomePapel(row),
           },
           { title: "Tipo", dataIndex: "type", width: 120 },
           {
@@ -124,12 +140,18 @@ export default function UsersPage() {
           ...(admin
             ? [
                 {
-                  title: "",
+                  title: "Ações",
                   width: 120,
                   render: (_: unknown, row: UserRow) => (
-                    <Button type="link" onClick={() => openEdit(row)}>
-                      Alterar
-                    </Button>
+                    <Dropdown
+                      trigger={["click"]}
+                      menu={{
+                        items: [{ key: "alterar", label: "Alterar senha e acesso" }],
+                        onClick: () => openEdit(row),
+                      }}
+                    >
+                      <Button>Ações</Button>
+                    </Dropdown>
                   ),
                 },
               ]
@@ -137,7 +159,7 @@ export default function UsersPage() {
         ]}
       />
       <Modal
-        title={editing ? `Senha e papel de ${editing.name}` : "Senha e papel"}
+        title="Alterar senha e acesso"
         open={Boolean(editing)}
         onCancel={() => setEditing(null)}
         onOk={save}
@@ -145,59 +167,39 @@ export default function UsersPage() {
         okText="Salvar"
         destroyOnHidden
       >
-        <p style={{ color: "#666" }}>Deixe a senha em branco para manter a atual.</p>
-        {editing ? (
-        <Form
-          key={editing.id}
-          form={form}
-          layout="vertical"
-          initialValues={{ role: papelCanonico(editing.role), password: "", confirm: "" }}
-        >
-          <Form.Item
-            label="Papel"
-            name="role"
-            rules={[{ required: true, message: "Escolha o papel" }]}
-          >
-            <Select options={papeis} placeholder="Selecione o papel" />
-          </Form.Item>
-          <Form.Item
-            label="Nova senha"
-            name="password"
-            rules={[
-              {
-                validator(_, value: string | undefined) {
-                  if (!value?.trim()) return Promise.resolve();
-                  if (value.trim().length < 4) {
-                    return Promise.reject(new Error("A senha deve ter pelo menos 4 caracteres"));
-                  }
-                  return Promise.resolve();
-                },
-              },
-            ]}
-          >
-            <Input.Password placeholder="Digite a nova senha" />
-          </Form.Item>
-          <Form.Item
-            label="Confirmar nova senha"
-            name="confirm"
-            dependencies={["password"]}
-            rules={[
-              ({ getFieldValue }) => ({
-                validator(_, value: string | undefined) {
-                  const password = String(getFieldValue("password") ?? "").trim();
-                  const confirm = String(value ?? "").trim();
-                  if (!password && !confirm) return Promise.resolve();
-                  if (!confirm) return Promise.reject(new Error("Confirme a nova senha"));
-                  if (password !== confirm) return Promise.reject(new Error("As senhas não coincidem"));
-                  return Promise.resolve();
-                },
-              }),
-            ]}
-          >
-            <Input.Password placeholder="Confirme a nova senha" />
-          </Form.Item>
-        </Form>
-        ) : null}
+        <p style={{ marginBottom: 16 }}>
+          {editing ? editing.name : ""}
+          {editing?.email ? ` — ${editing.email}` : ""}
+        </p>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 6 }}>Papel</div>
+          <Select
+            style={{ width: "100%" }}
+            placeholder="Selecione o papel"
+            options={papeis}
+            value={papel || undefined}
+            onChange={setPapel}
+          />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 6 }}>Nova senha</div>
+          <Input.Password
+            placeholder="Digite a nova senha"
+            value={senha}
+            onChange={(event) => setSenha(event.target.value)}
+          />
+        </div>
+        <div>
+          <div style={{ marginBottom: 6 }}>Confirmar nova senha</div>
+          <Input.Password
+            placeholder="Confirme a nova senha"
+            value={confirma}
+            onChange={(event) => setConfirma(event.target.value)}
+          />
+        </div>
+        <p style={{ color: "#666", marginTop: 12, marginBottom: 0 }}>
+          A senha só muda se as duas forem preenchidas e iguais. Em branco, ela permanece.
+        </p>
       </Modal>
     </div>
   );
