@@ -47,7 +47,16 @@ export default function LoginPage() {
           }),
         });
       if (!response.ok) {
-        setError("Credenciais inválidas.");
+        let detail = "Credenciais inválidas.";
+        try {
+          const body = (await response.json()) as { message?: string; error?: string };
+          if (typeof body.message === "string" && body.message) detail = body.message;
+          else if (typeof body.error === "string" && body.error) detail = body.error;
+        } catch {
+          detail = "Credenciais inválidas.";
+        }
+        setError(detail);
+        setCaptcha("");
         return;
       }
       const data = (await response.json()) as Session;
